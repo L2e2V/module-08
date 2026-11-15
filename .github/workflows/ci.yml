@@ -131,7 +131,9 @@ jobs:
     name: Manual deployment
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
-    needs: publish
+    needs:
+      - test-image
+      - security
     environment: production
     steps:
       - name: Deployment placeholder
