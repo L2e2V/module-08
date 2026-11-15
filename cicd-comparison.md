@@ -220,11 +220,14 @@ Medium. Basic configurations are accessible, but build chains, agents, and Kotli
 | Criterion | Jenkins | GitLab CI/CD | GitHub Actions | TeamCity |
 |---|---|---|---|---|
 | Architecture | Controller-agent | GitLab + Runner | Workflow + Runner | Server-agent |
-| Configuration | Jenkinsfile / Groovy | YAML | YAML | UI / Kotlin DSL |
-| Execution | Agents | Runners | Runners | Build agents |
-| Hosting | Self-managed | SaaS / Self-managed | SaaS / Self-hosted | Cloud / Self-managed |
-| Extensibility | Plugins | Templates and integrations | Marketplace Actions | Plugins and integrations |
+| Advantages | Highly customizable; extensive plugin ecosystem; full infrastructure control | Integrated repository, CI/CD, Container Registry, and merge requests | Native GitHub integration; reusable actions; managed runners | Detailed reporting; complex build chains; JetBrains integration |
+| Disadvantages | Requires maintenance; plugin compatibility issues; complex administration | Self-managed runners require administration; some features depend on subscription tier | Usage limits; third-party action risks; complex workflow debugging | Licensing considerations; infrastructure overhead; configuration complexity |
 | Learning curve | Medium-high | Low-medium | Low-medium | Medium |
+| Runner management | Self-managed agents connected to a controller | GitLab-hosted or self-managed runners | GitHub-hosted or self-hosted runners | Self-managed or cloud build agents |
+| Configuration format | Jenkinsfile / Groovy | YAML (`.gitlab-ci.yml`) | YAML (`.github/workflows/`) | Web UI / Kotlin DSL |
+| Ideal use case | Complex workflows requiring maximum customization and infrastructure control | GitLab-hosted projects requiring integrated CI/CD and container workflows | GitHub-hosted projects using automated testing and reusable actions | Enterprise projects requiring detailed build management and JetBrains integration |
+| Hosting | Self-managed | SaaS / Self-managed | GitHub-hosted service / Self-hosted runners | Cloud / Self-managed |
+| Extensibility | Plugins | Templates and integrations | Marketplace Actions | Plugins and integrations |
 | Container support | Yes | Yes | Yes | Yes |
 | Best integration | Broad ecosystem | GitLab | GitHub | JetBrains |
 
@@ -234,10 +237,13 @@ There is no universally best CI/CD platform. The appropriate choice depends on i
 
 - Jenkins is suitable when maximum flexibility and infrastructure control are required.
 - GitLab CI/CD is a strong choice for teams using GitLab as their primary development platform.
-- GitHub Actions is convenient for GitHub-hosted projects and workflows relying on reusable community actions.
+- GitHub Actions is convenient for GitHub-hosted projects and workflows relying on reusable communiыty actions.
 - TeamCity is suitable for organizations requiring detailed build management and integration with JetBrains.
 
-For this project, GitLab CI/CD is the most appropriate choice because the source repository, merge requests, container registry, and pipeline management are all available within one platform.
+For this assignment, GitLab CI/CD was selected as the primary target because it integrates repository management, merge requests, container registry, and pipeline execution within one platform.
+
+Due to GitLab account verification restrictions, the GitLab pipeline could not be executed end-to-end. GitHub Actions was therefore implemented as an alternative CI/CD workflow and successfully used to verify the application build, container tests, security scanning, and image publication.
+
 
 ## References
 
