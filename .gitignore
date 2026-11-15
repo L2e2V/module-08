@@ -1,0 +1,13 @@
+.env
+.env.*
+!.env.example
+
+*.log
+*.out
+*.test
+
+/dist/
+/coverage/
+
+.idea/
+.vscode/
