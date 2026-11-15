@@ -1,0 +1,91 @@
+stages:
+  - lint
+  - build
+  - test-image
+  - security
+  - deploy
+
+variables:
+  DOCKER_HOST: tcp://docker:2375
+  DOCKER_TLS_CERTDIR: ""
+  DOCKER_DRIVER: overlay2
+  IMAGE_SHA: "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
+
+.docker_job:
+  image: docker:27.5.1-cli
+  services:
+    - name: docker:27.5.1-dind
+      alias: docker
+  before_script:
+    - docker info
+
+lint:
+  stage: lint
+  image: golang:1.23-bookworm
+  script:
+    - test -z "$(gofmt -l dummy_exporter.go pkg/config/config.go)"
+    - go vet ./...
+    - go test ./...
+  rules:
+    - if: '$CI_COMMIT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
+build:
+  extends: .docker_job
+  stage: build
+  script:
+    - docker build -t "$IMAGE_SHA" .
+    - docker save "$IMAGE_SHA" -o image.tar
+  artifacts:
+    paths:
+      - image.tar
+    expire_in: 1 day
+  rules:
+    - if: '$CI_COMMIT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
+test-image:
+  extends: .docker_job
+  stage: test-image
+  needs:
+    - job: build
+      artifacts: true
+  script:
+    - docker load -i image.tar
+    - apk add --no-cache bash
+    - bash scripts/smoke-test.sh "$IMAGE_SHA"
+    - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+    - docker push "$IMAGE_SHA"
+    - |
+      if [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
+        docker tag "$IMAGE_SHA" "$CI_REGISTRY_IMAGE:latest"
+        docker push "$CI_REGISTRY_IMAGE:latest"
+      fi
+  rules:
+    - if: '$CI_COMMIT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
+security:
+  stage: security
+  image:
+    name: aquasec/trivy:0.58.2
+    entrypoint: [""]
+  needs:
+    - job: build
+      artifacts: true
+  script:
+    - trivy image --input image.tar --severity HIGH,CRITICAL --exit-code 0 --no-progress
+  rules:
+    - if: '$CI_COMMIT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
+deploy:
+  stage: deploy
+  image: alpine:3.20
+  script:
+    - echo "Manual deployment placeholder for $CI_REGISTRY_IMAGE:latest"
+  environment:
+    name: production
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'

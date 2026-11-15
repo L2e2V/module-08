@@ -1,0 +1,138 @@
+name: Docker CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - feature/**
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository }}
+
+jobs:
+  lint:
+    name: Lint and Go checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Check formatting
+        run: test -z "$(gofmt -l dummy_exporter.go pkg/config/config.go)"
+
+      - name: Go vet
+        run: go vet ./...
+
+      - name: Go test
+        run: go test ./...
+
+  build:
+    name: Build Docker image
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t dummy-exporter:test .
+
+      - name: Save image
+        run: docker save dummy-exporter:test -o image.tar
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: image.tar
+          retention-days: 1
+
+  test-image:
+    name: Smoke test
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+
+      - name: Load Docker image
+        run: docker load -i image.tar
+
+      - name: Run smoke test
+        run: bash scripts/smoke-test.sh dummy-exporter:test
+
+  security:
+    name: Trivy security scan
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+
+      - name: Scan image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          input: image.tar
+          severity: HIGH,CRITICAL
+          exit-code: '0'
+
+  publish:
+    name: Publish to GHCR
+    runs-on: ubuntu-latest
+    needs:
+      - test-image
+      - security
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+
+      - name: Load Docker image
+        run: docker load -i image.tar
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag and push
+        shell: bash
+        run: |
+          IMAGE="$(echo "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')"
+          SHA_TAG="${GITHUB_SHA::7}"
+
+          docker tag dummy-exporter:test "$IMAGE:$SHA_TAG"
+          docker push "$IMAGE:$SHA_TAG"
+
+          if [[ "$GITHUB_REF" == "refs/heads/main" ]]; then
+            docker tag dummy-exporter:test "$IMAGE:latest"
+            docker push "$IMAGE:latest"
+          fi
+
+  deploy:
+    name: Manual deployment
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    needs: publish
+    environment: production
+    steps:
+      - name: Deployment placeholder
+        run: echo "Deployment of ghcr.io/${{ github.repository }}:latest"
